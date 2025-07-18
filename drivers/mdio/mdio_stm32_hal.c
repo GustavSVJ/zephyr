@@ -88,6 +88,57 @@ static int mdio_stm32_write(const struct device *dev, uint8_t prtad,
 	return ret;
 }
 
+static int mdio_stm32_read_c45(const struct device *dev, uint8_t prtad, uint8_t devad,
+			uint16_t regad, uint16_t *data)
+{
+	struct mdio_stm32_data *const dev_data = dev->data;
+	ETH_HandleTypeDef *heth = &dev_data->heth;
+	uint32_t read;
+	int ret;
+
+	k_sem_take(&dev_data->sem, K_FOREVER);
+
+#ifdef CONFIG_ETH_STM32_HAL_API_V2
+	ret = HAL_ETH_ReadPHYRegister_c45(heth, prtad, devad, regad, &read);
+#else
+	return -ENOSYS;
+#endif
+
+	k_sem_give(&dev_data->sem);
+
+	if (ret != HAL_OK) {
+		return -EIO;
+	}
+
+	*data = read & ADIN1100_REG_VALUE_MASK;
+
+	return ret;
+}
+
+static int mdio_stm32_write_c45(const struct device *dev, uint8_t prtad, uint8_t devad,
+			 uint16_t regad, uint16_t data)
+{
+	struct mdio_stm32_data *const dev_data = dev->data;
+	ETH_HandleTypeDef *heth = &dev_data->heth;
+	int ret;
+
+	k_sem_take(&dev_data->sem, K_FOREVER);
+
+#ifdef CONFIG_ETH_STM32_HAL_API_V2
+	ret = HAL_ETH_WritePHYRegister_c45(heth, prtad, devad, regad, data);
+#else
+	return -ENOSYS;
+#endif
+
+	k_sem_give(&dev_data->sem);
+
+	if (ret != HAL_OK) {
+		return -EIO;
+	}
+
+	return ret;
+}
+
 #ifdef CONFIG_ETH_STM32_HAL_API_V1
 static void eth_set_mdio_clock_range_for_hal_v1(ETH_HandleTypeDef *heth)
 {
@@ -174,6 +225,8 @@ static int mdio_stm32_init(const struct device *dev)
 static DEVICE_API(mdio, mdio_stm32_api) = {
 	.read = mdio_stm32_read,
 	.write = mdio_stm32_write,
+	.read_c45 = mdio_stm32_read_c45,
+	.write_c45 = mdio_stm32_write_c45,
 };
 
 #define MDIO_STM32_HAL_DEVICE(inst)                                                                \
