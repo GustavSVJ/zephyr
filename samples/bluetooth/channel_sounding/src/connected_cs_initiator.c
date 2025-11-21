@@ -10,6 +10,7 @@
 #include <zephyr/bluetooth/cs.h>
 #include <zephyr/bluetooth/att.h>
 #include <zephyr/bluetooth/gatt.h>
+#include <zephyr/settings/settings.h>
 #include "distance_estimation.h"
 #include "common.h"
 
@@ -301,11 +302,31 @@ BT_CONN_CB_DEFINE(conn_cb) = {
 	.le_cs_subevent_data_available = subevent_result_cb,
 };
 
+void initSettings()
+{
+	int rc = settings_subsys_init();
+    if (rc != 0)
+    {
+        printk("settings_subsys_init failed with error: %d\n", rc);
+    }
+
+	rc = settings_load();
+    if ( rc != 0)
+    {
+        printk("settings_load failed with error: %d\n", rc);
+    }
+}
+
+
 int main(void)
 {
 	int err;
 
 	printk("Starting Channel Sounding Demo\n");
+
+	initSettings();
+
+	printk("Settings initialized.\n");
 
 	/* Initialize the Bluetooth Subsystem */
 	err = bt_enable(NULL);
@@ -314,11 +335,15 @@ int main(void)
 		return 0;
 	}
 
+	printk("Bluetooth initialized.\n");
+
 	err = bt_gatt_service_register(&step_data_gatt_service);
 	if (err) {
 		printk("bt_gatt_service_register() returned err %d\n", err);
 		return 0;
 	}
+
+	printk("GATT service registered.\n");
 
 	err = bt_le_scan_start(BT_LE_SCAN_ACTIVE_CONTINUOUS, device_found);
 	if (err) {
